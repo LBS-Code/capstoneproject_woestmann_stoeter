@@ -1,0 +1,169 @@
+<mujoco model="ant">
+  <compiler angle="degree" coordinate="local" inertiafromgeom="true"/>
+  <option integrator="RK4" timestep="0.01"/>
+  <custom>
+    <numeric data="0.0 0.0 0.55 1.0 0.0 0.0 0.0 0.0 1.0 0.0 -1.0 0.0 -1.0 0.0 1.0" name="init_qpos"/>
+  </custom>
+  <default>
+    <joint armature="1" damping="1" limited="true"/>
+    <geom conaffinity="1" condim="3" density="5.0" friction="1 0.5 0.5" margin="0.01" rgba="0.8 0.6 0.4 1"/>
+  </default>
+  <asset>
+    <texture builtin="gradient" height="100" rgb1="1 1 1" rgb2="0 0 0" type="skybox" width="100"/>
+    <texture builtin="flat" height="1278" mark="cross" markrgb="1 1 1" name="texgeom" random="0.01" rgb1="0.8 0.6 0.4" rgb2="0.8 0.6 0.4" type="cube" width="127"/>
+    <texture builtin="checker" height="100" name="texplane" rgb1="0 0 0" rgb2="0.8 0.8 0.8" type="2d" width="100"/>
+    <material name="MatPlane" reflectance="0.5" shininess="1" specular="1" texrepeat="60 60" texture="texplane"/>
+    <material name="geom" texture="texgeom" texuniform="true"/>
+
+    <hfield name="hills" nrow="129" ncol="129" size="7 6 0.25 0.05" file="terrain.png"/>  
+  </asset>
+  <worldbody>
+    <light cutoff="100" diffuse="1 1 1" dir="-0 0 -1.3" directional="true" exponent="1" pos="0 0 1.3" specular=".1 .1 .1"/>
+    <!-- Entry ramp for the uneven terrain, the ant cannot climb with the existing program, therefore we opted for a ramp to help it get up 
+    and demonstrate the robustness of the normal gait on the uneven terrain -->
+    <geom name="entry_ramp" type="box" pos="25 0 0.010" euler="0 -4 0"
+          size="1.5 2 0.1" conaffinity="1" condim="3"/>
+    <geom conaffinity="1" condim="3" material="MatPlane" name="floor" pos="0 0 0" rgba="0.8 0.9 0.8 1" size="40 40 40" type="plane"/>    
+    
+    <geom conaffinity="1" condim="3" name="wall" pos="20 0 1.5" size="0.25 3 3" type="box"/>
+    
+    
+    <!-- Simple S-shaped maze for the Ant to escape -->
+    <geom name="maze_back_trap" type="box" pos="-2.0 0 0.6" size="0.15 8 1.0" conaffinity="1" condim="3"/>
+    <geom name="maze_outer_left" type="box" pos="7 8 0.6" size="9.15 0.15 1.0" conaffinity="1" condim="3"/>
+    <geom name="maze_outer_right" type="box" pos="7 -8 0.6" size="9.15 0.15 1.0" conaffinity="1" condim="3"/>
+    <geom name="maze_wall_1" type="box" pos="2 -2.5 0.6" size="0.15 5.5 1.0" conaffinity="1" condim="3"/>
+    <geom name="maze_wall_2" type="box" pos="6 2.5 0.6" size="0.15 5.5 1.0" conaffinity="1" condim="3"/>
+    <geom name="maze_wall_3" type="box" pos="9 -2.85 0.6" size="3 0.15 1.0" conaffinity="1" condim="3"/>
+    <geom name="maze_wall_4" type="box" pos="12 5 0.6" size="0.15 3 1.0" conaffinity="1" condim="3"/>
+    <geom name="maze_wall_5" type="box" pos="16 -5 0.6" size="0.15 3 1.0" conaffinity="1" condim="3"/>
+    <geom name="maze_wall_6" type="box" pos="16 6 0.6" size="0.15 2 1.0" conaffinity="1" condim="3"/>
+
+
+    <!-- uneven terrain using a heightmap (each pixels brightness (from terrain.png) equals an elevation value)-->
+    <geom name="hills_terrain" type="hfield" hfield="hills" pos="33 0 0" conaffinity="1" condim="3"/>
+
+
+    <body name="torso" pos="0 0 0.75">
+      <camera name="track" mode="trackcom" pos="0 -3 0.3" xyaxes="1 0 0 0 0 1"/>
+      <site name="torso_imu" pos="0 0 0" size="0.03" rgba="0 1 0 1"/>
+      
+      <!-- Obstacle sensors: Ants way of "understanding" the environment, some are slightly facing up (+z) to counter torso movement -->
+      <site name="front_distance_sensor" pos="0.7 0 -0.15" zaxis="1 0 0.03"   size="0.03" rgba="1 0 0 1"/>
+      <site name="front_height_sensor" pos="0.6 0 0.4" zaxis="1 0 0.05" size="0.03" rgba="1 0 1 1"/>
+      <site name="rear_distance_sensor" pos="-0.6 0 0.2" zaxis="-1 0 0.05" size="0.03" rgba="1 0.5 1 1"/>
+      <site name="left_distance_sensor" pos="0 0.3 0.2" zaxis="0 1 0" size="0.03" rgba="0 1 1 1"/>
+      <site name="right_distance_sensor" pos="0 -0.3 0.2" zaxis="0 -1 0" size="0.03" rgba="0 1 1 1"/>
+      <site name="ground_distance_sensor" pos="0 0 0" zaxis="0 0 -1" size="0.03" rgba="0 0 1 1"/>
+
+      <!-- multiple angled "look-ahead" sensors: used to pick the shorter way around a free-standing obstacle (the wall) narrow pair discriminates far out 
+      and the wide pair discriminates close in. Both are mounted at the same point as the front sensor to account for an issue with self hits (sensors hit the ants legs) -->
+      <site name="front_left_20_sensor"  pos="0.7 0 -0.15" zaxis="0.940  0.342 0.03" size="0.03" rgba="1 0.6 0 1"/>
+      <site name="front_right_20_sensor" pos="0.7 0 -0.15" zaxis="0.940 -0.342 0.03" size="0.03" rgba="1 0.6 0 1"/>
+      <site name="front_left_55_sensor"  pos="0.7 0 -0.15" zaxis="0.574  0.819 0.03" size="0.03" rgba="1 0.9 0 1"/>
+      <site name="front_right_55_sensor" pos="0.7 0 -0.15" zaxis="0.574 -0.819 0.03" size="0.03" rgba="1 0.9 0 1"/>
+      
+      <geom name="torso_geom" pos="0 0 0" size="0.25" type="sphere"/>
+      <joint armature="0" damping="0" limited="false" margin="0.01" name="root" pos="0 0 0" type="free"/>
+      
+      <body name="front_left_leg" pos="0 0 0">
+        <geom fromto="0.0 0.0 0.0 0.2 0.2 0.0" name="aux_1_geom" size="0.08" type="capsule"/>
+        <body name="aux_1" pos="0.2 0.2 0">
+          <joint axis="0 0 1" name="hip_1" pos="0.0 0.0 0.0" range="-30 30" type="hinge"/>
+          <geom fromto="0.0 0.0 0.0 0.2 0.2 0.0" name="left_leg_geom" size="0.08" type="capsule"/>
+          <body pos="0.2 0.2 0">
+            <joint axis="-1 1 0" name="ankle_1" pos="0.0 0.0 0.0" range="30 70" type="hinge"/>
+            <geom fromto="0.0 0.0 0.0 0.4 0.4 0.0" name="left_ankle_geom" size="0.08" type="capsule"/>
+            <site name="foot_1_touch_site" pos="0.4 0.4 0" size="0.09" type="sphere" rgba="1 0 0 0.4"/>
+            <!-- front left leg sensor -->
+            <site name="foot_1_front_site" pos="0.45 0.4 0.05" size="0.03" rgba="0 1 0 1"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="front_right_leg" pos="0 0 0">
+        <geom fromto="0.0 0.0 0.0 -0.2 0.2 0.0" name="aux_2_geom" size="0.08" type="capsule"/>
+        <body name="aux_2" pos="-0.2 0.2 0">
+          <joint axis="0 0 1" name="hip_2" pos="0.0 0.0 0.0" range="-30 30" type="hinge"/>
+          <geom fromto="0.0 0.0 0.0 -0.2 0.2 0.0" name="right_leg_geom" size="0.08" type="capsule"/>
+          <body pos="-0.2 0.2 0">
+            <joint axis="1 1 0" name="ankle_2" pos="0.0 0.0 0.0" range="-70 -30" type="hinge"/>
+            <geom fromto="0.0 0.0 0.0 -0.4 0.4 0.0" name="right_ankle_geom" size="0.08" type="capsule"/>
+            <site name="foot_2_touch_site" pos="-0.4 0.4 0" size="0.09" type="sphere" rgba="1 0 0 0.4"/>
+            <!-- front right leg sensor -->
+            <site name="foot_2_front_site" pos="-0.45 0.4 0.05" size="0.03" rgba="0 1 0 1"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="back_left_leg" pos="0 0 0">
+        <geom fromto="0.0 0.0 0.0 -0.2 -0.2 0.0" name="aux_3_geom" size="0.08" type="capsule"/>
+        <body name="aux_3" pos="-0.2 -0.2 0">
+          <joint axis="0 0 1" name="hip_3" pos="0.0 0.0 0.0" range="-30 30" type="hinge"/>
+          <geom fromto="0.0 0.0 0.0 -0.2 -0.2 0.0" name="back_leg_geom" size="0.08" type="capsule"/>
+          <body pos="-0.2 -0.2 0">
+            <joint axis="-1 1 0" name="ankle_3" pos="0.0 0.0 0.0" range="-70 -30" type="hinge"/>
+            <geom fromto="0.0 0.0 0.0 -0.4 -0.4 0.0" name="third_ankle_geom" size="0.08" type="capsule"/>
+            <site name="foot_3_touch_site" pos="-0.4 -0.4 0" size="0.09" type="sphere" rgba="1 0 0 0.4"/>
+            <!-- back left leg sensor -->
+            <site name="foot_3_front_site" pos="-0.45 -0.4 0.05" size="0.03" rgba="0 1 0 1"/>
+          </body>
+        </body>
+      </body>
+
+      <body name="back_right_leg" pos="0 0 0">
+        <geom fromto="0.0 0.0 0.0 0.2 -0.2 0.0" name="aux_4_geom" size="0.08" type="capsule"/>
+        <body name="aux_4" pos="0.2 -0.2 0">
+          <joint axis="0 0 1" name="hip_4" pos="0.0 0.0 0.0" range="-30 30" type="hinge"/>
+          <geom fromto="0.0 0.0 0.0 0.2 -0.2 0.0" name="rightback_leg_geom" size="0.08" type="capsule"/>
+          <body pos="0.2 -0.2 0">
+            <joint axis="1 1 0" name="ankle_4" pos="0.0 0.0 0.0" range="30 70" type="hinge"/>
+            <geom fromto="0.0 0.0 0.0 0.4 -0.4 0.0" name="fourth_ankle_geom" size="0.08" type="capsule"/>
+            <site name="foot_4_touch_site" pos="0.4 -0.4 0" size="0.09" type="sphere" rgba="1 0 0 0.4"/>
+            <!-- back right leg sensor -->
+            <site name="foot_4_front_site" pos="0.45 -0.4 0.05" size="0.03" rgba="0 1 0 1"/>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+  <actuator>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="hip_4" gear="150"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="ankle_4" gear="150"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="hip_1" gear="150"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="ankle_1" gear="150"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="hip_2" gear="150"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="ankle_2" gear="150"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="hip_3" gear="150"/>
+    <motor ctrllimited="true" ctrlrange="-1.0 1.0" joint="ankle_3" gear="150"/>
+  </actuator>
+  <sensor>
+  <!-- Torso stability / IMU -->
+  <gyro name="torso_gyro" site="torso_imu"/>
+  <accelerometer name="torso_acc" site="torso_imu"/>
+
+  <!-- Obstacle / height sensing -->
+  <rangefinder name="front_distance" site="front_distance_sensor"/>
+  <rangefinder name="left_side_distance" site="left_distance_sensor"/>
+  <rangefinder name="right_side_distance" site="right_distance_sensor"/>
+  <rangefinder name="ground_distance" site="ground_distance_sensor"/>
+  <rangefinder name="front_height_sensor" site="front_height_sensor"/>
+  <rangefinder name="rear_distance" site="rear_distance_sensor"/>
+
+  <!-- Angled look-ahead -->
+  <rangefinder name="front_left_20" site="front_left_20_sensor"/>
+  <rangefinder name="front_right_20" site="front_right_20_sensor"/>
+  <rangefinder name="front_left_55" site="front_left_55_sensor"/>
+  <rangefinder name="front_right_55" site="front_right_55_sensor"/>
+
+  <!-- Foot contact sensing -->
+  <touch name="foot_1_touch" site="foot_1_touch_site"/>
+  <touch name="foot_1_front_touch" site="foot_1_front_site"/>
+  <touch name="foot_2_touch" site="foot_2_touch_site"/>
+  <touch name="foot_2_front_touch" site="foot_2_front_site"/>
+  <touch name="foot_3_touch" site="foot_3_touch_site"/>
+  <touch name="foot_3_front_touch" site="foot_3_front_site"/>
+  <touch name="foot_4_touch" site="foot_4_touch_site"/>
+  <touch name="foot_4_front_touch" site="foot_4_front_site"/>
+  </sensor>
+</mujoco>
