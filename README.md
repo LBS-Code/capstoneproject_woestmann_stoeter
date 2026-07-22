@@ -1,1 +1,4 @@
 # capstoneproject_woestmann_stoeter
+This is the final project for the course “Introduction to Neuromorphic Control” by Julia Wöstmann and Lukas Stöter. It consists of the ant model saved in ant_final.xml alongside its surroundings (obstacles) and any sensors we utilized. Together with the final notebook capstoneproject_final.ipynb and terrain.png (for the uneven terrain), you can reproduce our results.
+
+The notebook contains the code that is responsible for making the ant walk, detect and classify different types of obstacles (Wall, Maze, Box) which can be navigated. As it stands, the ant cannot climb; we focused on navigating around obstacles, which required us to solve an issue of unstable sensor readings. But to demonstrate the ant’s behaviour on uneven terrain, we kept this obstacle and helped the ant “climb” it with a ramp to then demonstrate the walking gait’s robustness.
