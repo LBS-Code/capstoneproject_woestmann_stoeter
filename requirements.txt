@@ -1,0 +1,4 @@
+mujoco
+mediapy
+numpy
+ipykernel
